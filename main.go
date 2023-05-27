@@ -67,7 +67,6 @@ func main() {
 	extensions := reg.FindAllString(extension, -1)
 
 	//fuzzing starts
-	var wg sync.WaitGroup
 
 	//t1 := make(map[string]bool)
 	//t2 := make(map[string]bool)
@@ -80,34 +79,38 @@ func main() {
 	}
 
 	//prepare wordlist with extensions
-	for _, word := range wordlist {
+	for _, word := range comb_noext {
 		for _, extension := range extensions {
 			comb_ext = append(comb_ext, string(word)+"."+extension)
 
 		}
 	}
+	//threads applying
 	ext_threads := len(comb_ext) / threads
 	noext_threads := len(comb_noext) / threads
-	for i := 0; i <= threads; i++ {
-		wg.Add(2)
-		go func() {
+	var wg sync.WaitGroup
+	var wg1 sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+		go func(start, end int) {
 			defer wg.Done()
-			start := i * noext_threads
-			end := (i + 1) * noext_threads
 			//mutex.Lock()
 			//defer mutex.Unlock()
-			fuzz_entensions(comb_noext[start:end])
-		}()
-		go func() {
-			defer wg.Done()
-			start_1 := i * ext_threads
-			end_1 := (i + 1) * ext_threads
+			fuzz_entensions(comb_ext[start:end])
+		}(i*ext_threads, (i+1)*ext_threads)
+	}
+
+	for i := 0; i < threads; i++ {
+		wg1.Add(1)
+		go func(start, end int) {
+			defer wg1.Done()
 			//mutex.Lock()
 			//defer mutex.Unlock()
-			fuzz_wordlist(comb_ext[start_1:end_1])
-		}()
+			fuzz_wordlist(comb_noext[start:end])
+		}(i*noext_threads, (i+1)*noext_threads)
 
 	}
+	wg1.Wait()
 	wg.Wait()
 	//remove the duplices from the slices
 	uniqueMap := make(map[string]bool)
@@ -138,11 +141,14 @@ func fuzz_entensions(urls []string) {
 				body, _ := ioutil.ReadAll(resp.Body)
 				color.Green("%s : [length: %d size: %d Status: %d]\n", url, len(body), resp.ContentLength, resp.StatusCode)
 				format := fmt.Sprintf("%s : [length: %d size: %d Status: %d]\n", url, len(body), resp.ContentLength, resp.StatusCode)
+				mutex.Lock()
 				foundlist = append(foundlist, format)
-				resp.Body.Close()
+				mutex.Unlock()
+
 			}
 			resp.Body.Close()
 		}
+
 	}
 }
 
@@ -150,6 +156,7 @@ func fuzz_wordlist(urls []string) {
 
 	for _, url := range urls {
 		resp, err := http.Get(url)
+
 		if err != nil {
 			continue
 		}
@@ -158,10 +165,13 @@ func fuzz_wordlist(urls []string) {
 				body, _ := ioutil.ReadAll(resp.Body)
 				color.Green("%s : [length: %d size: %d Status: %d]\n", url, len(body), resp.ContentLength, resp.StatusCode)
 				format := fmt.Sprintf("%s : [length: %d size: %d Status: %d]\n", url, len(body), resp.ContentLength, resp.StatusCode)
+				mutex.Lock()
 				foundlist = append(foundlist, format)
-				resp.Body.Close()
+				mutex.Unlock()
+
 			}
 			resp.Body.Close()
 		}
+
 	}
 }
