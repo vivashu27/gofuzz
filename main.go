@@ -86,19 +86,25 @@ func main() {
 
 		}
 	}
-	for i := 1; i <= threads; i++ {
+	ext_threads := len(comb_ext) / threads
+	noext_threads := len(comb_noext) / threads
+	for i := 0; i <= threads; i++ {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
+			start := i * noext_threads
+			end := (i + 1) * noext_threads
 			//mutex.Lock()
 			//defer mutex.Unlock()
-			fuzz_entensions(comb_noext)
+			fuzz_entensions(comb_noext[start:end])
 		}()
 		go func() {
 			defer wg.Done()
+			start_1 := i * ext_threads
+			end_1 := (i + 1) * ext_threads
 			//mutex.Lock()
 			//defer mutex.Unlock()
-			fuzz_wordlist(comb_ext)
+			fuzz_wordlist(comb_ext[start_1:end_1])
 		}()
 
 	}
